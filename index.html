@@ -31,14 +31,14 @@
     color-scheme:dark;
     --bg:#0d111a; --surface:#161c29; --ink:#edf0f7; --muted:#98a2b6; --line:#2a3245;
     --link:#8fb4f5; --ok:#2fa56c; --hol:#ff6a5e;
-    --a-x:#2b3d61; --t-x:#e6eeff; --a-L:#000814;
+    --a-x:#2b3d61; --t-x:#e6eeff; --a-L:#e3e8f2;--t-L:#0e1528;
   }
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
   --bg:#0d111a; --surface:#161c29; --ink:#edf0f7; --muted:#98a2b6; --line:#2a3245;
   --link:#8fb4f5; --ok:#2fa56c; --hol:#ff6a5e;
-  --a-x:#2b3d61; --t-x:#e6eeff; --a-L:#000814;
+  --a-x:#2b3d61; --t-x:#e6eeff; --a-L:#e3e8f2;--t-L:#0e1528;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -69,8 +69,11 @@ select:disabled{color:var(--muted);opacity:1}
 
 .strip{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}
 .mo{display:block;text-align:left;font-size:13px;color:var(--muted)}
-.mo .barw{display:flex;gap:0;height:24px;margin-top:3px;border-radius:6px;overflow:hidden;border:2px solid transparent;padding:1px}
-.mo .barw i{flex:1;background:var(--k,transparent)}
+/* Month bar: the outline and the bar inside it share a centre, so their corners stay parallel.
+   Outline radius 11px = bar radius 8px + 2px border + 1px gap. Squircle corners where supported. */
+.mo .barw{display:block;height:26px;margin-top:3px;border-radius:11px;corner-shape:squircle;border:2px solid transparent;padding:1px}
+.mo .bari{display:flex;height:100%;border-radius:8px;corner-shape:squircle;overflow:hidden}
+.mo .bari i{flex:1;background:var(--k,transparent)}
 .mo[aria-current="true"]{color:var(--ink);font-weight:700}
 .mo[aria-current="true"] .barw{border-color:var(--ink)}
 
@@ -97,7 +100,7 @@ h2{font:700 17px/1.2 var(--f);margin:0 0 10px}
   border:1px solid var(--line);background:var(--surface);color:var(--ink);overflow:hidden}
 .day.on{border-color:transparent;color:var(--kt);
   background:linear-gradient(135deg,var(--k) 50%,var(--k2,var(--k)) 50%)}
-.day .n{font-weight:700;font-size:15px;line-height:1}
+.day .n{font-weight:700;font-size:15px;line-height:1;white-space:nowrap}
 .day .lb{font-size:10.5px;font-weight:600;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .day.out{opacity:.38}
 .day.sel{outline:2.5px solid var(--link);outline-offset:1px}
@@ -145,6 +148,8 @@ html.tg .head{align-items:flex-start}
   .grid{grid-template-columns:34px repeat(7,minmax(0,1fr));gap:3px}
   .day{min-height:50px;padding:5px 4px;border-radius:7px}
   .day .lb{display:none}
+  .day.now .n::after{display:none}
+  .day.now::after{content:"";position:absolute;left:50%;bottom:7px;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--ok)}
   .wkl b{font-size:17px}.wkl small{font-size:10.5px}
   .wkl small span{display:none}
   .card{padding:14px 12px}
@@ -342,7 +347,7 @@ function renderStrip(W){
     const first=Date.UTC(2026,8+m,1), n=new Date(Date.UTC(2026,9+m,0)).getUTCDate();
     let b="";
     for(let d=0;d<n;d++){const a=dayActs(W,first+d*DAY); b+='<i class="'+(a?"k-"+a[a.length-1]:"")+'"></i>';}
-    h+='<button type="button" class="mo" data-m="'+m+'" aria-current="'+(m===mo)+'" aria-label="'+MN[(8+m)%12]+'">'+MS[m]+'<span class="barw">'+b+'</span></button>';
+    h+='<button type="button" class="mo" data-m="'+m+'" aria-current="'+(m===mo)+'" aria-label="'+MN[(8+m)%12]+'">'+MS[m]+'<span class="barw"><span class="bari">'+b+'</span></span></button>';
   }
   $("strip").innerHTML=h;
 }
