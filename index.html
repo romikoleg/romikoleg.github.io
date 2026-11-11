@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendar universitar FD 2026/2027</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: header + selectors, a 12-month strip, then the month grid (day cells
+   coloured by activity, I/P per week row) beside a panel: selected day, what's next, legend.
+   Stacks to one column on a phone. */
+:root{
+  --bg:#f1f3f8; --surface:#ffffff; --ink:#14213d; --muted:#5a6478; --line:#d9deea;
+  --link:#2456a6; --ok:#1c8a55; --hol:#d23a2e;
+  --a-x:#d3e2fb; --t-x:#14213d;
+  --a-s:#f2a900; --t-s:#2b1d00;
+  --a-R:#d94436; --t-R:#ffffff;
+  --a-P:#f6d365; --t-P:#3a2c00;
+  --a-v:#8fd6b7; --t-v:#0d3b2a;
+  --a-p:#1c8a66; --t-p:#ffffff;
+  --a-d:#c3a9ef; --t-d:#2a1458;
+  --a-V:#6b3fb0; --t-V:#ffffff;
+  --a-L:#131c33; --t-L:#ffffff;
+  --f:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d111a; --surface:#161c29; --ink:#edf0f7; --muted:#98a2b6; --line:#2a3245;
+    --link:#8fb4f5; --ok:#2fa56c; --hol:#ff6a5e;
+    --a-x:#2b3d61; --t-x:#e6eeff; --a-L:#000814;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d111a; --surface:#161c29; --ink:#edf0f7; --muted:#98a2b6; --line:#2a3245;
+  --link:#8fb4f5; --ok:#2fa56c; --hol:#ff6a5e;
+  --a-x:#2b3d61; --t-x:#e6eeff; --a-L:#000814;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 var(--f);font-variant-numeric:tabular-nums}
+button,select{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
+
+.head{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end}
+.fac{color:var(--muted);font-size:14px}
+h1{font:800 clamp(30px,6vw,50px)/1 var(--f);font-stretch:125%;margin:2px 0 4px;letter-spacing:-.01em}
+.sub{font:500 clamp(19px,3.6vw,30px)/1.1 var(--f);font-stretch:112%;color:var(--muted)}
+.today{font-size:14px;color:var(--muted)}
+.today b{display:flex;align-items:center;gap:6px;font-size:18px;font-weight:700;color:var(--ink);margin-top:2px}
+.badge{background:var(--ok);color:#fff;border-radius:6px;padding:0 7px;font-weight:700}
+hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
+
+.pick{display:flex;flex-wrap:wrap;gap:14px 28px}
+.pick label,.pick .lab{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.seg{display:inline-flex;gap:2px;padding:4px;border-radius:12px;background:color-mix(in srgb,var(--ink) 8%,var(--bg))}
+.seg button{min-width:52px;height:38px;padding:0 14px;border-radius:9px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+select{height:46px;min-width:250px;max-width:100%;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+select:disabled{color:var(--muted);opacity:1}
+.field{min-width:0}
+
+.strip{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}
+.mo{display:block;text-align:left;font-size:13px;color:var(--muted)}
+.mo .barw{display:flex;gap:0;height:24px;margin-top:3px;border-radius:6px;overflow:hidden;border:2px solid transparent;padding:1px}
+.mo .barw i{flex:1;background:var(--k,transparent)}
+.mo[aria-current="true"]{color:var(--ink);font-weight:700}
+.mo[aria-current="true"] .barw{border-color:var(--ink)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.side{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+h2{font:700 17px/1.2 var(--f);margin:0 0 10px}
+
+.mh{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.mh h2{font:800 clamp(24px,5vw,32px)/1 var(--f);font-stretch:115%;margin:0}
+.mh h2 span{font-weight:500;color:var(--muted)}
+.nav{display:flex;gap:6px}
+.nav button{height:38px;min-width:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-weight:600}
+.nav button:disabled{opacity:.35;cursor:default}
+.grid{display:grid;grid-template-columns:52px repeat(7,minmax(0,1fr));gap:4px}
+.dow{font-size:12.5px;color:var(--muted);text-align:center;padding-bottom:4px}
+.dow:first-child{text-align:left}
+.wkl{display:flex;flex-direction:column;justify-content:center;line-height:1.1}
+.wkl b{font:800 20px/1 var(--f);font-stretch:115%}
+.wkl.p b{color:var(--link)}
+.wkl small{font-size:11.5px;color:var(--muted);margin-top:3px;white-space:nowrap}
+.wkl .mk{font-size:11px;color:var(--hol);font-weight:700}
+.day{position:relative;min-height:68px;border-radius:9px;padding:6px 7px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);overflow:hidden}
+.day.on{border-color:transparent;color:var(--kt);
+  background:linear-gradient(135deg,var(--k) 50%,var(--k2,var(--k)) 50%)}
+.day .n{font-weight:700;font-size:15px;line-height:1}
+.day .lb{font-size:10.5px;font-weight:600;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.day.out{opacity:.38}
+.day.sel{outline:2.5px solid var(--link);outline-offset:1px}
+.day.now{outline:2.5px solid var(--ink);outline-offset:1px}
+.day.now::after{content:"";position:absolute;left:50%;bottom:7px;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 1.5px #fff}
+.day.hol::before{content:"";position:absolute;right:5px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--hol);box-shadow:0 0 0 1.5px #fff}
+
+.k-x{--k:var(--a-x);--kt:var(--t-x)} .k-s{--k:var(--a-s);--kt:var(--t-s)} .k-R{--k:var(--a-R);--kt:var(--t-R)}
+.k-P{--k:var(--a-P);--kt:var(--t-P)} .k-v{--k:var(--a-v);--kt:var(--t-v)} .k-p{--k:var(--a-p);--kt:var(--t-p)}
+.k-d{--k:var(--a-d);--kt:var(--t-d)} .k-V{--k:var(--a-V);--kt:var(--t-V)} .k-L{--k:var(--a-L);--kt:var(--t-L)}
+.j-x{--k2:var(--a-x)} .j-R{--k2:var(--a-R)} .j-v{--k2:var(--a-v)} .j-V{--k2:var(--a-V)}
+
+.sw{width:16px;height:16px;border-radius:4px;flex:none;margin-top:2px;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);
+  background:linear-gradient(135deg,var(--k) 50%,var(--k2,var(--k)) 50%)}
+.ico{width:16px;flex:none;text-align:center;color:var(--hol);font-weight:800;font-size:12px;line-height:20px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--hol);margin:5px 3.5px 0;flex:none}
+.sd small{color:var(--muted);font-size:14px}
+.sd .date{font:800 22px/1.15 var(--f);margin:2px 0 6px}
+.sd p{margin:0 0 10px;color:var(--muted)}
+.li{display:flex;gap:10px;align-items:flex-start;margin-top:6px}
+.next{list-style:none;margin:0;padding:0}
+.next li{border-top:1px solid var(--line)}
+.next li:first-child{border-top:0}
+.next button{display:flex;gap:10px;width:100%;text-align:left;padding:10px 0;align-items:flex-start}
+.next small{display:block;color:var(--muted);font-size:13px;margin-top:1px}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.legend li{display:flex;gap:10px;align-items:flex-start}
+.foot{font-size:13px;color:var(--muted);margin:12px 0 0}
+.notes{margin:0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:5px}
+footer{font-size:13px;color:var(--muted);max-width:70ch}
+
+/* Inside Telegram: Telegram's own colours, compact header */
+html.tg body{background:var(--bg)}
+html.tg .wrap{padding-top:12px;gap:14px}
+html.tg .fac{display:none}
+html.tg h1{font-size:24px}
+html.tg .sub{font-size:16px}
+html.tg .head{align-items:flex-start}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .strip{grid-template-columns:repeat(6,1fr)}
+}
+@media (max-width:620px){
+  .grid{grid-template-columns:34px repeat(7,minmax(0,1fr));gap:3px}
+  .day{min-height:50px;padding:5px 4px;border-radius:7px}
+  .day .lb{display:none}
+  .wkl b{font-size:17px}.wkl small{font-size:10.5px}
+  .wkl small span{display:none}
+  .card{padding:14px 12px}
+  .field,.field select{width:100%}
+  .seg{display:flex}.seg button{flex:1}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <div class="fac">Facultatea de Design, UTM</div>
+      <h1>Calendarul universitar</h1>
+      <div class="sub">pentru anul universitar 2026/2027</div>
+    </div>
+    <div class="today" id="today"></div>
+  </header>
+  <hr>
+  <div class="pick">
+    <div class="field">
+      <span class="lab" id="ylab">Anul de studii</span>
+      <div class="seg" id="years" role="group" aria-labelledby="ylab"></div>
+    </div>
+    <div class="field">
+      <label for="prog">Specialitatea / programul</label>
+      <select id="prog"></select>
+    </div>
+  </div>
+  <hr>
+  <nav class="strip" id="strip" aria-label="Lunile anului universitar"></nav>
+
+  <div class="cols">
+    <section class="card">
+      <div class="mh">
+        <h2 id="mtitle"></h2>
+        <div class="nav">
+          <button type="button" id="prev" aria-label="Luna precedentă">‹</button>
+          <button type="button" id="nextm" aria-label="Luna următoare">›</button>
+          <button type="button" id="goToday">Azi</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+    <aside class="side">
+      <section class="card sd" id="sel" aria-live="polite"></section>
+      <section class="card" id="nextCard"><h2>Ce urmează</h2><ul class="next" id="next"></ul></section>
+      <section class="card"><h2>Legendă</h2><ul class="legend" id="legend"></ul>
+        <p class="foot"><b>I / P</b> în stânga fiecărui rând arată dacă săptămâna e impară sau pară, după cum e marcată în calendarul oficial. Punctul roșu marchează o zi de sărbătoare oficială.</p>
+      </section>
+    </aside>
+  </div>
+
+  <section class="card">
+    <h2>Note din calendarul oficial</h2>
+    <ol class="notes" type="a">
+      <li>Stagiile de practică care se realizează pe parcursul semestrului sunt incluse în orarul săptămânal al activităților didactice.</li>
+      <li>Semestrele cu stagii de practică realizate în UTM și la întreprinderile ramurii pe parcursul semestrului durează 15 săptămâni.</li>
+      <li>În semestrele cu stagii de practică în producție realizate în afara UTM, activitățile didactice durează 10 sau 12 săptămâni.</li>
+      <li>Evaluările periodice se organizează în afara orelor de studii, conform orarului aprobat la ședința Consiliului facultății.</li>
+      <li>Autoverificări la plagiat: 03.05.2027 – 08.05.2027.</li>
+      <li>Verificarea (VP) PL/TL la plagiat se realizează în penultima săptămână a semestrului.</li>
+    </ol>
+  </section>
+  <footer>Întocmit după calendarul universitar al Facultății de Design pentru anul 2026/2027. În caz de neconcordanță, documentul oficial are prioritate.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const DAY=864e5, WEEK=7*DAY, START=Date.UTC(2026,7,31);
+const MS=["sep","oct","nov","dec","ian","feb","mar","apr","mai","iun","iul","aug"];
+const MN=["ianuarie","februarie","martie","aprilie","mai","iunie","iulie","august","septembrie","octombrie","noiembrie","decembrie"];
+const M3=["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","nov","dec"];
+const DW=["luni","marți","miercuri","joi","vineri","sâmbătă","duminică"];
+const DWS=["Lu","Ma","Mi","Jo","Vi","Sâ","Du"];
+const HOL={"2026-08-31":"Limba Română","2026-10-14":"Hramul orașului Chișinău","2026-12-25":"Crăciunul (stil nou)",
+ "2027-01-01":"Anul Nou","2027-01-07":"Crăciunul (stil vechi)","2027-01-08":"Crăciunul (stil vechi)","2027-03-08":"Ziua Internațională a Femeii",
+ "2027-05-01":"Ziua Muncii","2027-05-02":"Paștele","2027-05-03":"A doua zi de Paști","2027-05-09":"Ziua Victoriei și Ziua Europei",
+ "2027-05-10":"Paștele Blajinilor","2027-06-01":"Ziua Copilului","2027-08-27":"Ziua Independenței"};
+
+// One letter per week, weeks 1..52 of the academic year.
+const AUT="xxxxxxexxxxxxexssvvss", MID="rr", SUM="zzvvvvvvvvv", END="nnnnnnnnnnn";
+const SPR={a:"xxxxexxxxxxePxssss", b:"xxexxxexppppPpssss", c:"xxxexxxxexppPppsss", d:"xesqdddDddDdPwdLLn"};
+const OPTS={1:[["a","Toate specialitățile"]],
+  2:[["a","A, DJ, DI, DTP"],["b","TDCT, DVI"]],
+  3:[["a","DI"],["c","DTP, TDCT, DVI"],["d","A, DJ"]],
+  4:[["d","Toate specialitățile"]]};
+// activities
+const A={x:["Activități didactice","Activități didactice"],s:["Sesiune de examinare","Sesiune"],R:["Sesiune de reexaminare","Reexaminare"],
+ P:["Vacanța de Paști","Vacanța de Paști"],v:["Vacanță","Vacanță"],p:["Stagiu de practică","Practică"],
+ d:["Practică de documentare la PL/TL și proiectare de licență","Proiect de licență"],V:["Verificarea PL/TL la plagiat (VP)","VP"],L:["Examen de licență","Examen de licență"]};
+// week token -> activities (+flag = evaluare periodică, +mark = „>>”)
+const T={x:{a:"x"},e:{a:"x",flag:1},s:{a:"s"},r:{a:"xR"},v:{a:"v"},P:{a:"P"},p:{a:"p"},d:{a:"d"},D:{a:"d",mark:1},
+ q:{a:"dR"},w:{a:"dV",mark:1},L:{a:"L"},z:{a:"Rv"},n:{a:""}};
+
+let st={year:1,track:"a"};
+try{const s=JSON.parse(localStorage.getItem("fd-cal2")||"null"); if(s&&OPTS[s.year]&&OPTS[s.year].some(o=>o[0]===s.track)) st=s;}catch(e){}
+
+// ---- Telegram Mini App ----
+const TG=(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.initData!==undefined&&window.Telegram.WebApp.platform!=="unknown")?window.Telegram.WebApp:null;
+// Program code -> calendar track, per year (from the faculty sheet)
+const PROG2TRACK={2:{A:"a",DJ:"a",DI:"a",DTP:"a",TDCT:"b",DVI:"b"},3:{DI:"a",DTP:"c",TDCT:"c",DVI:"c",A:"d",DJ:"d"}};
+// Preselect from the link: ?an=2&prog=TDCT (prog may be a full group name like "TDCT-251"),
+// or from a direct Mini App link: t.me/<bot>/<app>?startapp=an2_TDCT
+(function(){
+  let an=null,prog=null;
+  try{
+    const q=new URLSearchParams(location.search);
+    an=q.get("an"); prog=q.get("prog")||q.get("grupa");
+    const sp=(TG&&TG.initDataUnsafe&&TG.initDataUnsafe.start_param)||q.get("tgWebAppStartParam");
+    if(sp){const m=/^an([1-4])(?:_([A-Za-z]+))?/.exec(sp); if(m){an=m[1]; if(m[2]) prog=m[2];}}
+  }catch(e){}
+  const y=parseInt(an,10);
+  if(!(y>=1&&y<=4)) return;
+  const code=prog?String(prog).toUpperCase().replace(/[^A-Z].*$/,""):"";
+  const map=PROG2TRACK[y];
+  st={year:y,track:map?(map[code]||OPTS[y][0][0]):OPTS[y][0][0]};
+  try{localStorage.setItem("fd-cal2",JSON.stringify(st));}catch(e){}
+})();
+
+function tgTheme(){
+  if(!TG) return;
+  const p=TG.themeParams||{}, r=document.documentElement.style, dark=TG.colorScheme==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"dark":"light");
+  const set=(k,v)=>{if(v) r.setProperty(k,v);};
+  set("--bg",p.secondary_bg_color||p.bg_color);
+  set("--surface",p.section_bg_color||p.bg_color);
+  set("--ink",p.text_color);
+  set("--muted",p.hint_color||p.subtitle_text_color);
+  set("--link",p.link_color||p.button_color);
+  set("--line",p.section_separator_color);
+  try{TG.setHeaderColor("secondary_bg_color"); TG.setBackgroundColor("secondary_bg_color");}catch(e){}
+}
+if(TG){
+  document.documentElement.classList.add("tg");
+  try{TG.ready(); TG.expand();}catch(e){}
+  tgTheme();
+  TG.onEvent("themeChanged",tgTheme);
+}
+const haptic=()=>{try{TG&&TG.HapticFeedback&&TG.HapticFeedback.selectionChanged();}catch(e){}};
+const save=()=>{try{localStorage.setItem("fd-cal2",JSON.stringify(st));}catch(e){}};
+const weeks=()=>AUT+MID+SPR[st.track]+(st.track==="d"?END:SUM);
+
+const now=new Date(), TODAY=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+const LAST=START+52*WEEK-DAY;
+const inYear=ms=>ms>=START&&ms<=LAST;
+let sel=inYear(TODAY)?TODAY:START;
+const moOf=ms=>{const d=new Date(ms);return Math.min(11,Math.max(0,(d.getUTCFullYear()-2026)*12+d.getUTCMonth()-8));};
+let mo=moOf(sel);
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const iso=ms=>new Date(ms).toISOString().slice(0,10);
+const wkOf=ms=>Math.floor((ms-START)/WEEK);
+const dowOf=ms=>(new Date(ms).getUTCDay()+6)%7;
+const parity=i=>i%2===0?"impară":"pară";
+const semWk=i=>i<21?i+1:i<41?i-20:null;
+const dm=ms=>{const d=new Date(ms);return d.getUTCDate()+" "+M3[d.getUTCMonth()];};
+const kcls=a=>a?"k-"+a[0]+(a[1]?" j-"+a[1]:""):"";
+const aname=a=>a.split("").map(c=>A[c][0]).join(" / ");
+
+// activities on a given day ("" = nothing). Calendar runs Mon–Sat; Sunday is coloured only in vacations.
+function dayActs(W,ms){
+  if(!inYear(ms)) return "";
+  const c=W[wkOf(ms)];
+  if(dowOf(ms)===6&&c!=="v"&&c!=="P") return "";
+  return T[c].a;
+}
+
+function phases(W){
+  const norm=c=>c==="e"?"x":c==="D"?"d":c, out=[];
+  for(let i=0;i<52;i++){
+    const k=norm(W[i]);
+    if(out.length&&out[out.length-1].k===k) out[out.length-1].to=i; else out.push({k:k,from:i,to:i});
+  }
+  return out.filter(p=>p.k!=="n");
+}
+
+function renderHead(){
+  const d=new Date(TODAY);
+  let h="Azi, "+d.getUTCDate()+" "+MN[d.getUTCMonth()];
+  if(inYear(TODAY)) h+='<b>Săptămâna <span class="badge">'+parity(wkOf(TODAY))+'</span></b>';
+  $("today").innerHTML=h;
+}
+function renderPick(){
+  $("years").innerHTML=[1,2,3,4].map(y=>'<button type="button" data-y="'+y+'" aria-pressed="'+(st.year===y)+'">'+y+'</button>').join("");
+  const o=OPTS[st.year], s=$("prog");
+  s.innerHTML=o.map(x=>'<option value="'+x[0]+'"'+(x[0]===st.track?" selected":"")+'>'+x[1]+'</option>').join("");
+  s.disabled=o.length<2;
+}
+function renderStrip(W){
+  let h="";
+  for(let m=0;m<12;m++){
+    const first=Date.UTC(2026,8+m,1), n=new Date(Date.UTC(2026,9+m,0)).getUTCDate();
+    let b="";
+    for(let d=0;d<n;d++){const a=dayActs(W,first+d*DAY); b+='<i class="'+(a?"k-"+a[a.length-1]:"")+'"></i>';}
+    h+='<button type="button" class="mo" data-m="'+m+'" aria-current="'+(m===mo)+'" aria-label="'+MN[(8+m)%12]+'">'+MS[m]+'<span class="barw">'+b+'</span></button>';
+  }
+  $("strip").innerHTML=h;
+}
+function renderMonth(W){
+  const first=Date.UTC(2026,8+mo,1), fd=new Date(first), month=fd.getUTCMonth();
+  const name=MN[month];
+  $("mtitle").innerHTML=name[0].toUpperCase()+name.slice(1)+" <span>"+fd.getUTCFullYear()+"</span>";
+  $("prev").disabled=mo===0; $("nextm").disabled=mo===11; $("goToday").disabled=!inYear(TODAY);
+  const last=Date.UTC(2026,9+mo,0);
+  let h='<div class="dow">Săpt.</div>'+DWS.map(d=>'<div class="dow">'+d+'</div>').join("");
+  for(let ws=first-dowOf(first)*DAY; ws<=last; ws+=WEEK){
+    const i=wkOf(ws), ok=i>=0&&i<52, t=ok?T[W[i]]:null, sw=ok?semWk(i):null;
+    h+='<div class="wkl'+(ok&&i%2?" p":"")+'">'+(ok?'<b>'+(i%2?"P":"I")+'</b>'+
+        (sw?'<small><span>săpt. </span>'+sw+'</small>':"")+
+        (t.flag?'<span class="mk" title="Săptămână cu evaluare periodică">▶</span>':"")+
+        (t.mark?'<span class="mk" title="Marcaj „>>” în calendarul oficial">»</span>':""):"")+'</div>';
+    for(let d=0;d<7;d++){
+      const ms=ws+d*DAY, a=dayActs(W,ms), dt=new Date(ms), out=dt.getUTCMonth()!==month;
+      h+='<button type="button" data-d="'+ms+'" class="day'+(a?" on "+kcls(a):"")+(out?" out":"")+(ms===sel?" sel":"")+(ms===TODAY?" now":"")+(HOL[iso(ms)]?" hol":"")+'"'+
+        ' aria-label="'+dt.getUTCDate()+" "+MN[dt.getUTCMonth()]+(a?": "+esc(aname(a)):"")+'">'+
+        '<span class="n">'+dt.getUTCDate()+'</span>'+(a?'<span class="lb">'+esc(a.split("").map(c=>A[c][1]).join(" / "))+'</span>':"")+'</button>';
+    }
+  }
+  $("grid").innerHTML=h;
+}
+function renderSel(W){
+  const d=new Date(sel), i=wkOf(sel), a=dayActs(W,sel), t=inYear(sel)?T[W[i]]:null, sw=t?semWk(i):null, hol=HOL[iso(sel)];
+  let h='<small>'+(sel===TODAY?"Azi, ":"")+DW[dowOf(sel)]+'</small><div class="date">'+d.getUTCDate()+" "+MN[d.getUTCMonth()]+" "+d.getUTCFullYear()+'</div>';
+  if(t){
+    h+='<p>Săptămâna '+(i+1)+' a anului universitar, '+parity(i)+(sw?', săptămâna '+sw+' a semestrului':"")+'</p>';
+    if(a) for(const c of a) h+='<div class="li k-'+c+'"><span class="sw"></span><span>'+esc(A[c][0])+'</span></div>';
+    else h+='<div class="li"><span class="sw"></span><span>'+(dowOf(sel)===6&&T[W[i]].a?"Duminică, zi liberă":"Fără activități în calendar")+'</span></div>';
+    if(t.flag&&a) h+='<div class="li"><span class="ico">▶</span><span>Săptămână cu evaluare periodică</span></div>';
+    if(t.mark&&a) h+='<div class="li"><span class="ico">»</span><span>Săptămână marcată „&gt;&gt;” în calendarul oficial</span></div>';
+    if(W[i]==="P"&&st.track==="d") h+='<div class="li"><span class="ico">•</span><span>Autoverificări la plagiat, 3–8 mai</span></div>';
+  } else h+='<p>În afara anului universitar 2026/2027.</p>';
+  if(hol) h+='<div class="li"><span class="dot"></span><span>Sărbătoare oficială: '+esc(hol)+'</span></div>';
+  $("sel").innerHTML=h;
+}
+function renderNext(W){
+  const ev=[];
+  for(const p of phases(W)){
+    const a=T[p.k].a, s=START+p.from*WEEK, vac=p.k==="v"||p.k==="P";
+    ev.push({s:s,e:START+p.to*WEEK+(vac?6:5)*DAY,ic:'<span class="sw '+kcls(a)+'"></span>',t:aname(a)});
+  }
+  for(let i=0;i<52;i++) if(W[i]==="e") ev.push({s:START+i*WEEK,e:START+i*WEEK+5*DAY,ic:'<span class="ico">▶</span>',t:"Săptămână cu evaluare periodică"});
+  const up=ev.filter(e=>e.s>TODAY).sort((a,b)=>a.s-b.s).slice(0,5);
+  $("nextCard").hidden=!up.length;
+  $("next").innerHTML=up.map(e=>{const n=Math.round((e.s-TODAY)/DAY);
+    return '<li><button type="button" data-d="'+e.s+'">'+e.ic+'<span>'+esc(e.t)+'<small>'+dm(e.s)+" – "+dm(e.e)+", peste "+n+(n===1?" zi":n<20?" zile":" de zile")+'</small></span></button></li>';}).join("");
+}
+function renderLegend(W){
+  const seen=[]; let flag=0,mark=0,dual=0;
+  for(const c of W){const t=T[c]; for(const k of t.a) if(!seen.includes(k)) seen.push(k); if(t.flag)flag=1; if(t.mark)mark=1; if(t.a.length>1)dual=1;}
+  const order="xsRpdVLPv"; seen.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+  let h=seen.map(k=>'<li class="k-'+k+'"><span class="sw"></span><span>'+esc(A[k][0])+'</span></li>').join("");
+  if(flag) h+='<li><span class="ico">▶</span><span>Săptămână cu evaluare periodică</span></li>';
+  if(mark) h+='<li><span class="ico">»</span><span>Săptămână marcată „&gt;&gt;” în calendarul oficial (fără explicație în legenda facultății)</span></li>';
+  if(dual) h+='<li class="k-x j-R"><span class="sw"></span><span>Două activități în aceeași perioadă</span></li>';
+  $("legend").innerHTML=h;
+}
+function render(){const W=weeks(); renderPick(); renderStrip(W); renderMonth(W); renderSel(W); renderNext(W); renderLegend(W); tgBack();}
+// Telegram back button: shown when you've moved away from today; tapping it returns to today.
+function tgBack(){
+  if(!TG||!TG.BackButton) return;
+  const away=inYear(TODAY)&&(sel!==TODAY||mo!==moOf(TODAY));
+  try{away?TG.BackButton.show():TG.BackButton.hide();}catch(e){}
+}
+if(TG&&TG.BackButton) TG.BackButton.onClick(function(){sel=TODAY;mo=moOf(TODAY);haptic();render();window.scrollTo({top:0,behavior:"smooth"});});
+
+document.addEventListener("click",function(e){
+  const y=e.target.closest("[data-y]"), m=e.target.closest("[data-m]"), d=e.target.closest("[data-d]");
+  if(e.target.closest("button")) haptic();
+  if(y){st.year=+y.dataset.y; if(!OPTS[st.year].some(o=>o[0]===st.track)) st.track=OPTS[st.year][0][0]; save(); render();}
+  else if(m){mo=+m.dataset.m; render();}
+  else if(d){sel=+d.dataset.d; if(inYear(sel)||true){const k=(new Date(sel).getUTCFullYear()-2026)*12+new Date(sel).getUTCMonth()-8; if(k>=0&&k<12&&d.closest(".next")) mo=k;} render();
+    if(d.closest(".next")) $("mtitle").scrollIntoView({block:"start",behavior:"smooth"});}
+  else if(e.target.closest("#prev")){if(mo>0){mo--;render();}}
+  else if(e.target.closest("#nextm")){if(mo<11){mo++;render();}}
+  else if(e.target.closest("#goToday")){sel=TODAY;mo=moOf(TODAY);render();}
+});
+$("prog").addEventListener("change",function(){st.track=this.value;save();render();});
+renderHead(); render();
+})();
+</script>
+</body>
+</html>
